@@ -46,6 +46,12 @@ and in your `metricsSpec`, include:
 
 `device_id_dim` should automatically get picked up as a dimension.
 
+### Schema-less dimensions
+
+If the `dimensions` field is left empty in your ingestion spec, Druid will treat every column that is not the timestamp column, 
+a dimension that has been excluded, or a metric column as a dimension. 
+
+Note that when using schema-less ingestion, all dimensions will be ingested as String-typed dimensions.
 
 ### Nested dimensions
 
@@ -58,15 +64,6 @@ If the user wishes to ingest a column as a numeric-typed dimension (Long, Double
 There are performance tradeoffs between string and numeric columns. Numeric columns are generally faster to group on
 than string columns. But unlike string columns, numeric columns don't have indexes, so they are generally slower to
 filter on.
-
-### Schema-less dimensions
-
-If the `dimensions` field is left empty in your ingestion spec, Druid will treat every column that is not the timestamp column, 
-a dimension that has been excluded, or a metric column as a dimension. It should be noted that because of [#658](https://github.com/druid-io/druid/issues/658) 
-these segments will be slightly larger than if the list of dimensions was explicitly specified in lexicographic order. This limitation 
-does not impact query correctness- just storage requirements.
-
-Note that when using schema-less ingestion, all dimensions will be ingested as String-typed dimensions.
 
 
 ### Counting the number of ingested events
