@@ -15,7 +15,7 @@ of OLAP data.
 * Dimensions are fields that can be filtered on or grouped by. They are always single Strings, arrays of Strings, single Longs, single Doubles or single Floats.
 * Metrics are fields that can be aggregated. They are often stored as numbers (integers or floats) but can also be stored as complex objects like HyperLogLog sketches or approximate histogram sketches.
 
-Prior to ingesting into Druid, it is worth identifying the important dimensions and metrics for your particular use case and designing ingestion with these in mind. The most performant Druid clusters in terms of both ingestion and querying will have good rollup (number of events / number of rows in Druid). Rollup will be best with lower cardinality dimensions. Sending the raw data through a normalization process (ETL) can improve rollup. Good rollup will decrease the size of the datasource and will allow you to save on storage costs.
+Prior to ingesting into Druid, it is worth identifying the important dimensions and metrics for your particular use case and designing ingestion with these in mind. The most performant Druid clusters in terms of both ingestion and querying will have good rollup (number of events / number of rows in Druid). Rollup will be best with lower cardinality dimensions. Cleaning data through ETL prior to ingestion can decrease cardinality and improve rollup. Good rollup will decrease the size of the datasource and will allow you to save on storage costs.
 
 ### High cardinality dimensions (e.g. unique IDs)
 
@@ -24,6 +24,27 @@ In practice, we see that exact counts for unique IDs are often not required. Sto
 sketch as part of aggregations, will greatly improve performance (up to orders of magnitude performance improvement), and significantly reduce storage. 
 Druid's `hyperUnique` aggregator is based off of Hyperloglog and can be used for unique counts on a high cardinality dimension. 
 For more information, see [this video](https://www.youtube.com/watch?v=Hpd3f_MLdXo).
+
+#### Including the same column as a dimension and a metric
+
+One workflow with unique IDs is to be able to filter on a particular ID, while still being able to do fast unique counts on the ID column. 
+If you are not using schema-less dimensions, this use case is supported by setting the `name` of the metric to something different than the dimension. 
+If you are using schema-less dimensions, the best practice here is to include the same column twice, once as a dimension, and as a `hyperUnique` metric. This may involve 
+some work at ETL time.
+
+As an example, for schema-less dimensions, repeat the same column:
+
+```
+{"device_id_dim":123, "device_id_met":123}
+```
+
+and in your `metricsSpec`, include:
+ 
+```
+{ "type" : "hyperUnique", "name" : "devices", "fieldName" : "device_id_met" }
+```
+
+`device_id_dim` should automatically get picked up as a dimension.
 
 
 ### Nested dimensions
@@ -46,27 +67,6 @@ these segments will be slightly larger than if the list of dimensions was explic
 does not impact query correctness- just storage requirements.
 
 Note that when using schema-less ingestion, all dimensions will be ingested as String-typed dimensions.
-
-### Including the same column as a dimension and a metric
-
-One workflow with unique IDs is to be able to filter on a particular ID, while still being able to do fast unique counts on the ID column. 
-If you are not using schema-less dimensions, this use case is supported by setting the `name` of the metric to something different than the dimension. 
-If you are using schema-less dimensions, the best practice here is to include the same column twice, once as a dimension, and as a `hyperUnique` metric. This may involve 
-some work at ETL time.
-
-As an example, for schema-less dimensions, repeat the same column:
-
-```
-{"device_id_dim":123, "device_id_met":123}
-```
-
-and in your `metricsSpec`, include:
- 
-```
-{ "type" : "hyperUnique", "name" : "devices", "fieldName" : "device_id_met" }
-```
-
-`device_id_dim` should automatically get picked up as a dimension.
 
 
 ### Counting the number of ingested events
